@@ -14,7 +14,7 @@ public class Heap {
 	public Heap() {
 		int i;
 		// Initialize implicitList
-		this.size = 1000; // In Bytes
+		this.size = 10; // In Bytes
 		this.implicitList = new int[this.size];
 		
 		for (i = 0; i < size; i++) {
@@ -62,7 +62,13 @@ public class Heap {
 	}
 	
 	public int getImplicitList(int index) {
-		return implicitList[index];
+		int value = -1;
+		try {
+			value = implicitList[index];
+		} catch (Exception e) {
+			System.out.println("Reference to implicitList is out of bounds: " + index);
+		}
+		return value;
 	}
 
 	public void setImplicitList(int[] implicitList) {

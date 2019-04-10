@@ -11,7 +11,7 @@ public class Allocate {
 	private static final int FREE = 1;
 		
 	private Heap heap;
-	private int pointers[];
+	private int pointer[];
 	
 	/**
 	 * Allocated: 	Last bit = 0
@@ -19,7 +19,7 @@ public class Allocate {
 	 */
 	public Allocate(int pointers[]) {
 		heap = new Heap();
-		this.pointers = pointers;
+		this.pointer = pointers;
 	}
 	
 	public void process(List<String> content) throws Exception {
@@ -49,7 +49,7 @@ public class Allocate {
 				reference = Integer.parseInt(line[2]);
 				
 				// Call malloc
-				pointers[reference] = mymalloc(alloc);
+				pointer[reference] = mymalloc(alloc);
 				break;
 			// In case of: realloc
 			case "r":
@@ -59,15 +59,15 @@ public class Allocate {
 				reference = Integer.parseInt(line[3]);
 				
 				// Call realloc
-				pointers[reference] = myrealloc(alloc, realloc);
+				pointer[reference] = myrealloc(alloc, realloc);
 				break;
 			// In case of: free
 			case "f":
 				// Initialize variables
-				alloc = Integer.parseInt(line[1]);
+				reference = Integer.parseInt(line[1]);
 				
 				// Call free
-				if (!myfree(alloc)) {
+				if (!myfree(reference)) {
 					throw new Exception("Block is unallocated");
 				}
 				break;
@@ -78,7 +78,7 @@ public class Allocate {
 		}
 	}
 	
-	public int mymalloc(int size) throws Exception {
+	public int split(int blckPtr, int mallocSize) {
 		// Declaring variables
 		int oldHeaderValue;
 		int newHeaderValue;
@@ -88,9 +88,69 @@ public class Allocate {
 		int newHeaderIndex;
 		int oldFooterIndex;
 		int newFooterIndex;
+		int payloadPtr;
+		
+		// Get old header index
+		oldHeaderIndex = blckPtr;
+		
+		// Get old header value
+		oldHeaderValue = heap.getImplicitList(blckPtr) - FREE;
+		
+		// Get payload ptr
+		payloadPtr = oldHeaderIndex + 1;
+		
+		// If the size of the free block is greater than the size requested then split
+		if ((oldHeaderValue - FREE) > mallocSize) {
+			// Change size in old header
+			heap.setImplicitList(oldHeaderIndex, mallocSize);
+			
+			// Get new footer index
+			newFooterIndex = oldHeaderIndex + mallocSize - FOOTER_SIZE;
+			
+			// Set size in new Footer
+			heap.setImplicitList(newFooterIndex, mallocSize);
+			
+			// SPLIT into -> [OLD_HEADER][NEW_FOOTER][NEW_HEADER][OLD_FOOTER]
+			// Get new header index
+			newHeaderIndex = newFooterIndex + FOOTER_SIZE;
+			
+			// Set size in new Header
+			heap.setImplicitList(newHeaderIndex, oldHeaderValue - mallocSize + FREE);
+			
+			// Get old footer index
+			oldFooterIndex = oldHeaderIndex + oldHeaderValue - FOOTER_SIZE;				
+			
+			// Change size in old footer
+			heap.setImplicitList(oldFooterIndex, oldHeaderValue - mallocSize + FREE);
+			
+		// Otherwise, don't split
+		} else if ((oldHeaderValue - FREE) == mallocSize) {
+			// Change size in old header
+			heap.setImplicitList(oldHeaderIndex, mallocSize);
+			
+			// Get old footer index
+			oldFooterIndex = oldHeaderIndex + oldHeaderValue - FOOTER_SIZE;				
+			
+			// Change size in old footer
+			heap.setImplicitList(oldFooterIndex, mallocSize);
+		} else {
+			mysbrk(10);
+			payloadPtr = -1;
+		}
+		
+		
+			
+		
+		return payloadPtr;
+	}
+	
+	public int mymalloc(int size) throws Exception {
+		// Declaring variables
+		int headerValue;
+		int headerIndex;
+		int footerIndex;
 		int payloadSize;
 		int payloadPtr;
-		int i = 1;
 		
 		// Trivial case
 		if (size == 0) {
@@ -106,84 +166,27 @@ public class Allocate {
 		// Add Header and Footer to the size
 		size += HEADER_SIZE + FOOTER_SIZE;
 		
+		// First header starts at 1s 
+		headerIndex = 1;
+		
 		// Go through heap, start at second word
-		while (i < heap.getSize()) {
+		while (headerIndex < heap.getSize()) {
+			// Get header value
+			headerValue = heap.getImplicitList(headerIndex);
+			
 			// When i = 1 is free and its size is 
-			if (heap.getImplicitList(i) % 2 == 1 
-					&& (heap.getImplicitList(i) - FREE) > size) {
+			if (headerValue % 2 == FREE) {
 				
-				// Get old header index
-				oldHeaderIndex = i;
+				// Split if necessary
+				if ((payloadPtr = split(headerIndex, size)) != -1) {
+					return payloadPtr;
+				}
 				
-				// Get old header value
-				oldHeaderValue = heap.getImplicitList(i) - FREE;	
-				
-				// Get payload ptr
-				payloadPtr = oldHeaderIndex + 1;
-				
-				// Change size in old header
-				heap.setImplicitList(oldHeaderIndex, size);
-				
-				// Get new footer index
-				newFooterIndex = oldHeaderIndex + size - FOOTER_SIZE;
-				
-				// Set size in new Footer
-				heap.setImplicitList(newFooterIndex, size);
-				
-				// Get new header index
-				newHeaderIndex = newFooterIndex + FOOTER_SIZE;
-				
-				// Set size in new Header
-				heap.setImplicitList(newHeaderIndex, oldHeaderValue - size + FREE);
-				
-				// Get old footer index
-				oldFooterIndex = oldHeaderIndex + oldHeaderValue - FOOTER_SIZE;				
-				
-				// Change size in old footer
-				heap.setImplicitList(oldFooterIndex, oldHeaderValue - size + FREE);
-				
-				
-				return payloadPtr;
-			// If only block left is exact fit
-			} else if (heap.getImplicitList(i) % 2 == 1 
-					&& (heap.getImplicitList(i) - 1) == size) {
-				// Get old header index
-				oldHeaderIndex = i;
-				
-				// Get old header value
-				oldHeaderValue = heap.getImplicitList(i) - FREE;	
-				
-				// Get payload ptr
-				payloadPtr = oldHeaderIndex + 1;
-				
-				// Change size in old header
-				heap.setImplicitList(oldHeaderIndex, size);
-				
-				// Get old footer index
-				oldFooterIndex = oldHeaderIndex + oldHeaderValue - FOOTER_SIZE;				
-				
-				// Change size in old footer
-				heap.setImplicitList(oldFooterIndex, size);
-				
-				return payloadPtr;
 			// If block is allocated	
-			} else if (heap.getImplicitList(i) % 2 == 0) {
-				
-				// Get header index
-				newHeaderIndex = i;
-				
-				// Get header value
-				newHeaderValue = heap.getImplicitList(newHeaderIndex);
-				
-				// Get Footer index
-				newFooterIndex = newHeaderIndex + newHeaderValue - FOOTER_SIZE;
+			} else {
 				
 				// Next header
-				i = newFooterIndex + FOOTER_SIZE;
-				System.out.println("hello");
-			// If non of the above, then not enough space
-			} else {
-				mysbrk(1000);
+				headerIndex += headerValue;		
 			}
 		}
 		
@@ -192,16 +195,115 @@ public class Allocate {
 	}
 
 	
-	public boolean myfree(int ptr) {
+	public void coalesce(int blckPtr, int size) {
+		// Declaring variables
+		int nextBlckPtr;
+		int prevBlckPtr;
+		int nextBlckVal;
+		int prevBlckVal;
 		
+		// Get next block header
+		nextBlckPtr = blckPtr + size;
+
+		// Get prev block footer
+		prevBlckPtr = blckPtr - HEADER_SIZE;
 		
+		// Coalesce with next if possible
+		// Check if next exists
+		if ((nextBlckVal = heap.getImplicitList(nextBlckPtr)) != -1) {
+			// If block is free
+			if (nextBlckVal >= 4 && nextBlckVal % 2 == 1) {
+				// Set the size of the current block's header
+				heap.setImplicitList(blckPtr, nextBlckVal + size);
+				
+				// Reset the size of the current block's footer
+				heap.setImplicitList(blckPtr + size - FOOTER_SIZE, 1);
+				
+				// Reset the size of the next block's header
+				heap.setImplicitList(nextBlckPtr, 1);
+				
+				// Set the size of the next blocks's footer
+				heap.setImplicitList(nextBlckPtr + (nextBlckVal - FREE) - FOOTER_SIZE, nextBlckVal + size);
+				
+				// Set new size to not mess up values for prev
+				size += nextBlckVal - FREE;
+			}
+		}
 		
-		return false;
+		// Coalesce with next if possible
+		// Check if next exists
+		if ((prevBlckVal = heap.getImplicitList(prevBlckPtr)) != -1) {
+			// If block is free
+			if (prevBlckVal >= 4 && prevBlckVal % 2 == 1) {
+				// Set the size of the prev block's footer
+				heap.setImplicitList(prevBlckPtr, 1);
+				
+				// Reset the size of the prev block's header
+				heap.setImplicitList(prevBlckPtr - (prevBlckVal - FREE) + HEADER_SIZE, prevBlckVal + size);
+				
+				// Reset the size of the current block's header
+				heap.setImplicitList(blckPtr, 1);
+				
+				// Set the size of the current blocks's footer
+				heap.setImplicitList(blckPtr + size - FOOTER_SIZE, prevBlckVal + size);
+			}
+		}
 	}
 	
-	public int myrealloc(int ptr, int size) {
+	public boolean myfree(int ptr) {
+		if (ptr < 0) {
+			return false;
+		}
+		// Get start of memory block index
+		int blckPtr = pointer[ptr] - HEADER_SIZE;
 		
-		return 0;
+		// Get the size of the current block
+		int size = heap.getImplicitList(blckPtr);
+		
+		// Set the size of the header to (size + 1)
+		heap.setImplicitList(blckPtr, size + FREE);
+		
+		// Set the size of the footer to (size + 1)
+		heap.setImplicitList(blckPtr + size - FOOTER_SIZE, size + FREE);
+		
+		// remove from reference array
+		pointer[ptr] = 0;
+		
+		// coalesce
+		coalesce(blckPtr, size);
+		
+		return true;
+	}
+	
+	public int myrealloc(int ptr, int size) throws Exception {
+		// Declaring variables
+		int content[];
+		int blckPtr;
+		int blckSize;
+		int payloadPtr;
+		int i;
+		
+		// Get block pointer
+		blckPtr = pointer[ptr] - HEADER_SIZE;
+		
+		// Get block size
+		blckSize = heap.getImplicitList(blckPtr);
+		
+		// Copy contents of block
+		content = new int[blckSize];
+		for(i = 0; i < (blckSize - HEADER_SIZE - FOOTER_SIZE); i++) {
+			content[i] = heap.getImplicitList(blckPtr + i + HEADER_SIZE);
+		}
+		
+		// free he current block
+		if (!myfree(ptr)) {
+			throw new Exception("Block is unallocated");
+		}
+		
+		// malloc the new block
+		payloadPtr = mymalloc(size);
+		
+		return payloadPtr;
 	}
 	
 	public void mysbrk(int size) {
