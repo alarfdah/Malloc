@@ -9,13 +9,23 @@ public class Driver {
 		// Declarations
 		FileIO fileIO;
 		Allocate alloc;
+		String input[]; // 0: File name, 1: Implicit or Explicit, 2. First or Best fit
 		List<String> content = new ArrayList<>();
 		int pointers[] = new int[1000];
 		
+		// UserInput
+		UserInput ui = new UserInput();
+		input = ui.getUserInput();
 		
 		// File IO
-		fileIO = new FileIO("./input.txt");
+		fileIO = new FileIO(input[0]);
 		fileIO.readFile(content);
+		
+		// Set Implicit or Explicit
+		Heap.setImplicitOrExplicit(Integer.parseInt(input[0]));
+		
+		// Set First or Best fit
+		Heap.setFirstOrBestFit(Integer.parseInt(input[1]));
 		
 		// Process input
 		try {

@@ -1,54 +1,53 @@
 package malloc;
 
 public class Heap {
-	private static final int MAX_SIZE = 100000; // In Bytes
-	private static final int WORD_SIZE = 4;
-	private static final int DOUBLE_ALIGN = 8;
+	private static final int MAX_SIZE = 100000;
 	
-	private int curr;
+	private static int implicitOrExplicit;
+	private static int firstOrBestFit;
+	
+	private int heap[];
 	private int size;
 	
-	private int implicitList[];
+	private FreeNode head;
 	
 
 	public Heap() {
 		int i;
 		// Initialize implicitList
 		this.size = 10; // In Bytes
-		this.implicitList = new int[this.size];
+		this.heap = new int[this.size];
 		
 		for (i = 0; i < size; i++) {
-			this.implicitList[i] = 1;
+			this.heap[i] = 1;
 		}
 		
 		// In the first header and footer store the size of the block
-		this.implicitList[1] = this.size - 1;
-		this.implicitList[this.size - 2] = this.size - 1;
+		this.heap[1] = this.size - 1;
+		this.heap[this.size - 2] = this.size - 1;
 		
-		// Start at 0x4 or word 1
-		this.setCurr(1);
 	}
 		
 	public static int getMaxSize() {
 		return MAX_SIZE;
 	}
-
-	public static int getWordSize() {
-		return WORD_SIZE;
-	}
-
-	public static int getDoubleAlign() {
-		return DOUBLE_ALIGN;
-	}
-
-	public int getCurr() {
-		return curr;
-	}
-
-	public void setCurr(int curr) {
-		this.curr = curr;
-	}
 	
+	public static int getImplicitOrExplicit() {
+		return implicitOrExplicit;
+	}
+
+	public static void setImplicitOrExplicit(int implicitOrExplicit) {
+		Heap.implicitOrExplicit = implicitOrExplicit;
+	}
+
+	public static int getFirstOrBestFit() {
+		return firstOrBestFit;
+	}
+
+	public static void setFirstOrBestFit(int firstOrBestFit) {
+		Heap.firstOrBestFit = firstOrBestFit;
+	}
+
 	public int getSize() {
 		return size;
 	}
@@ -57,36 +56,34 @@ public class Heap {
 		this.size = size;
 	}
 	
-	public int[] getImplicitList() {
-		return implicitList;
+	public FreeNode getHead() {
+		return head;
+	}
+
+	public void setHead(FreeNode head) {
+		this.head = head;
+	}
+
+	public int[] getHeap() {
+		return heap;
 	}
 	
-	public int getImplicitList(int index) {
+	public int getHeap(int index) {
 		int value = -1;
 		try {
-			value = implicitList[index];
+			value = heap[index];
 		} catch (Exception e) {
 			System.out.println("Reference to implicitList is out of bounds: " + index);
 		}
 		return value;
 	}
 
-	public void setImplicitList(int[] implicitList) {
-		this.implicitList = implicitList;
+	public void setHeap(int[] implicitList) {
+		this.heap = implicitList;
 	}
 	
-	public void setImplicitList(int index, int value) {
-		this.implicitList[index] = value;
-	}
-
-	public int incrementSize(int inc) {
-		this.curr += inc;
-		return this.curr;
-	}
-	
-	public int decrementSize(int dec) {
-		this.curr += dec;
-		return this.curr;
+	public void setHeap(int index, int value) {
+		this.heap[index] = value;
 	}
 	
 	public int expand(int inc) throws Exception {
@@ -104,7 +101,7 @@ public class Heap {
 		
 		// Copy content to new array
 		for (i = 0; i < (this.size - inc); i++) {
-			newImplicitList[i] = this.implicitList[i];
+			newImplicitList[i] = this.heap[i];
 		}
 		
 		// Initialize the rest with 1
@@ -112,7 +109,7 @@ public class Heap {
 			newImplicitList[i] = 1;
 		}
 		
-		implicitList = newImplicitList;
+		heap = newImplicitList;
 		return this.size;
 	}
 	
