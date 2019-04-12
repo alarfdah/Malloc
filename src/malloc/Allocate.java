@@ -8,6 +8,7 @@ public class Allocate {
 	private static final int HEADER_SIZE = 1;
 	private static final int FOOTER_SIZE = 1;
 	private static final int WORD_SIZE = 4;
+	private static final int EXPLICIT = 2;
 	private static final int SBRK = 10;
 	private static final int FREE = 1;
 		
@@ -21,6 +22,13 @@ public class Allocate {
 	public Allocate(int pointers[]) {
 		heap = new Heap();
 		this.pointer = pointers;
+	}
+	
+	public void printHeap() {
+		int i;
+		for (i = 0; i < heap.getSize(); i++) {
+			System.out.printf("[%4d] = %4d\n", i, heap.getHeap(i));
+		}
 	}
 	
 	public void process(List<String> content) throws Exception {
@@ -86,6 +94,8 @@ public class Allocate {
 		int oldFooterIndex;
 		int newFooterIndex;
 		int payloadPtr;
+		int prev;
+		int next;
 		
 		// Get old header index
 		oldHeaderIndex = blckPtr;
@@ -98,6 +108,7 @@ public class Allocate {
 		
 		// If the size of the free block is greater than the size requested then split
 		if ((oldHeaderValue - FREE) > mallocSize) {
+			
 			// Change size in old header
 			heap.setHeap(oldHeaderIndex, mallocSize);
 			
@@ -120,18 +131,33 @@ public class Allocate {
 			// Change size in old footer
 			heap.setHeap(oldFooterIndex, oldHeaderValue - mallocSize + FREE);
 			
-		// Otherwise, don't split
-		} else if ((oldHeaderValue - FREE) == mallocSize) {
-			// Change size in old header
-			heap.setHeap(oldHeaderIndex, mallocSize);
-			
-			// Get old footer index
-			oldFooterIndex = oldHeaderIndex + oldHeaderValue - FOOTER_SIZE;				
-			
-			// Change size in old footer
-			heap.setHeap(oldFooterIndex, mallocSize);
-			
-		// If size not enough, sbrk()
+			// If explicit
+			if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+				// Remove the prev and next addresses to the next split free block
+				prev = heap.getHeap(oldHeaderIndex + HEADER_SIZE);
+				next = heap.getHeap(oldHeaderIndex + 2 * HEADER_SIZE);
+				
+				// Reset the contents of the payload
+				heap.setHeap(oldHeaderIndex + HEADER_SIZE, 1);
+				heap.setHeap(oldHeaderIndex + 2 * HEADER_SIZE, 1);
+				
+				// Transfer to the new header
+				heap.setHeap(newHeaderIndex + HEADER_SIZE, prev);
+				heap.setHeap(newHeaderIndex + 2 * HEADER_SIZE, next);
+				
+				// Set the curr at the most recent free block
+				heap.setCurr(newHeaderIndex + 2 * HEADER_SIZE);
+				
+				// if prev is 0, then it points to root
+				if (prev == 0) {
+					heap.setHeap(prev, newHeaderIndex + 2 * HEADER_SIZE);
+				// Change the next pointer from previous block to point to the new payload
+				} else if (prev != -1) {
+					// Prev will take you back to the prev ptr or prev block, add 1 to get its next
+					heap.setHeap(prev + 1, newHeaderIndex + 2 * HEADER_SIZE);	
+				}
+				
+			}
 		} else {
 			mysbrk(SBRK);
 			payloadPtr = -1;
@@ -187,12 +213,18 @@ public class Allocate {
 	}
 
 	
-	public void coalesce(int blckPtr, int size) {
+	public int coalesce(int blckPtr, int size) {
 		// Declaring variables
 		int nextBlckPtr;
 		int prevBlckPtr;
 		int nextBlckVal;
 		int prevBlckVal;
+		int prevFreeBlck;
+		int nextFreeBlck;
+		int newBlckPtr;
+		
+		// Initialize newBlckPtr
+		newBlckPtr = blckPtr;
 		
 		// Get next block header
 		nextBlckPtr = blckPtr + size;
@@ -201,7 +233,7 @@ public class Allocate {
 		prevBlckPtr = blckPtr - HEADER_SIZE;
 		
 		// Coalesce with next if possible
-		// Check if next exists
+		// Check if next exists, using -1 because -1 implies no next
 		if ((nextBlckVal = heap.getHeap(nextBlckPtr)) != -1) {
 			// If block is free
 			if (nextBlckVal >= 4 && nextBlckVal % 2 == FREE) {
@@ -219,38 +251,110 @@ public class Allocate {
 				
 				// Set new size to not mess up values for prev
 				size += nextBlckVal - FREE;
+				
+				// Set the return to be the head of new block
+				newBlckPtr = blckPtr;
+				
+				if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+					// Get next free block
+					nextFreeBlck = heap.getHeap(nextBlckPtr + 2 * HEADER_SIZE);
+					
+					// Get prev free block
+					prevFreeBlck = heap.getHeap(nextBlckPtr + HEADER_SIZE);
+					
+					// Copy the pointers back to the new head
+					heap.setHeap(newBlckPtr + 2 * HEADER_SIZE, nextFreeBlck);
+					heap.setHeap(newBlckPtr + HEADER_SIZE, prevFreeBlck);
+					
+					// Reset the values in the old header
+					heap.setHeap(nextBlckPtr + 2 * HEADER_SIZE, 1);
+					heap.setHeap(nextBlckPtr + HEADER_SIZE, 1);
+					
+					// Check that the prev blck is not root
+					if (prevFreeBlck != 0) {
+						// The next of the previous block points to the next of next block
+						heap.setHeap(prevFreeBlck + HEADER_SIZE, nextFreeBlck);
+						
+					}
+					
+					if (nextFreeBlck != -1) {
+						// The prev of the next block points to the prev of the prev of the previous block
+						heap.setHeap(nextFreeBlck - HEADER_SIZE, prevFreeBlck);
+					}
+					
+				}
+				
 			}
 		}
 		
 		// Coalesce with next if possible
-		// Check if next exists
-		if ((prevBlckVal = heap.getHeap(prevBlckPtr)) != -1) {
+		// Check if next exists, using 0 because the first block will point to root
+		if ((prevBlckVal = heap.getHeap(prevBlckPtr)) != 0) {
 			// If block is free
 			if (prevBlckVal >= 4 && prevBlckVal % 2 == FREE) {
+				prevBlckPtr = prevBlckPtr - (prevBlckVal - FREE) + HEADER_SIZE;
 				// Set the size of the prev block's footer
-				heap.setHeap(prevBlckPtr, 1);
+				heap.setHeap(prevBlckPtr + (prevBlckVal - FREE) - FOOTER_SIZE, 1);
 				
 				// Reset the size of the prev block's header
-				heap.setHeap(prevBlckPtr - (prevBlckVal - FREE) + HEADER_SIZE, prevBlckVal + size);
+				heap.setHeap(prevBlckPtr, prevBlckVal + size);
 				
 				// Reset the size of the current block's header
 				heap.setHeap(blckPtr, 1);
 				
 				// Set the size of the current blocks's footer
 				heap.setHeap(blckPtr + size - FOOTER_SIZE, prevBlckVal + size);
+								
+				// Assign prev to be the new blck
+				newBlckPtr = prevBlckPtr;
+				
+				// If explicit, need to move around pointers
+				if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+					// Get next free block
+					nextFreeBlck = heap.getHeap(newBlckPtr + 2 * HEADER_SIZE);
+					
+					// Get prev free block
+					prevFreeBlck = heap.getHeap(newBlckPtr + HEADER_SIZE);
+					
+					// Copy the pointers back to the new head
+					heap.setHeap(newBlckPtr + 2 * HEADER_SIZE, nextFreeBlck);
+					heap.setHeap(newBlckPtr + HEADER_SIZE, prevFreeBlck);
+					
+					// Reset the values in the old header
+					heap.setHeap(blckPtr + 2 * HEADER_SIZE, 1);
+					heap.setHeap(blckPtr + HEADER_SIZE, 1);
+					
+					// 1 is the index of the first header, so prev cannot be 1 (default value)
+					if (prevFreeBlck != 0) {
+						// The next of the previous block points to the next of next block
+						heap.setHeap(prevFreeBlck + HEADER_SIZE, nextFreeBlck);						
+					}
+					
+					if (nextFreeBlck != -1) {
+						// The prev of the next block points to the prev of the prev of the previous block
+						heap.setHeap(nextFreeBlck - HEADER_SIZE, prevFreeBlck);	
+					}
+				}
 			}
 		}
+		
+		return newBlckPtr;
 	}
 	
 	public boolean myfree(int ptr) {
+		int newBlckPtr;
+		int blckPtr;
+		int size;
+		int curr;
+		
 		if (ptr < 0) {
 			return false;
 		}
 		// Get start of memory block index
-		int blckPtr = pointer[ptr] - HEADER_SIZE;
+		blckPtr = pointer[ptr] - HEADER_SIZE;
 		
 		// Get the size of the current block
-		int size = heap.getHeap(blckPtr);
+		size = heap.getHeap(blckPtr);
 		
 		// Set the size of the header to (size + 1)
 		heap.setHeap(blckPtr, size + FREE);
@@ -262,7 +366,34 @@ public class Allocate {
 		pointer[ptr] = 0;
 		
 		// coalesce
-		coalesce(blckPtr, size);
+		newBlckPtr = coalesce(blckPtr, size);
+		
+		// For explicit lists
+		// Grab the current next pointer
+		curr = heap.getCurr();
+		
+		// Get most recent free block
+		blckPtr = curr - 2 * HEADER_SIZE;
+		
+		
+		// If explicit (LIFO POLICY)
+		if (Heap.getImplicitOrExplicit() == EXPLICIT && blckPtr != newBlckPtr) {
+			
+			// Set the prev of curr to the new block 
+			heap.setHeap(blckPtr + HEADER_SIZE, newBlckPtr + HEADER_SIZE);
+			
+			// Set the prev of new block to the root
+			heap.setHeap(newBlckPtr + HEADER_SIZE, 0);
+			
+			// Set the next of the new block to current
+			heap.setHeap(newBlckPtr + 2 * HEADER_SIZE, blckPtr + 2 * HEADER_SIZE);
+			
+			// Set the next of root to be new block
+			heap.setHeap(0, newBlckPtr + 2 * HEADER_SIZE);
+			
+			// Set curr to the new block
+			heap.setCurr(newBlckPtr + 2 * HEADER_SIZE);
+		}
 		
 		return true;
 	}

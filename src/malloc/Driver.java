@@ -15,22 +15,27 @@ public class Driver {
 		
 		// UserInput
 		UserInput ui = new UserInput();
-		input = ui.getUserInput();
+//		input = ui.getUserInput();
 		
 		// File IO
-		fileIO = new FileIO(input[0]);
+//		fileIO = new FileIO(input[0]);
+		fileIO = new FileIO("input.txt");
 		fileIO.readFile(content);
 		
 		// Set Implicit or Explicit
-		Heap.setImplicitOrExplicit(Integer.parseInt(input[0]));
+//		Heap.setImplicitOrExplicit(Integer.parseInt(input[1]));
+		Heap.setImplicitOrExplicit(2);
 		
 		// Set First or Best fit
-		Heap.setFirstOrBestFit(Integer.parseInt(input[1]));
+//		Heap.setFirstOrBestFit(Integer.parseInt(input[2]));
+		Heap.setFirstOrBestFit(1);
+		
 		
 		// Process input
 		try {
 			alloc = new Allocate(pointers);
-			alloc.process(content);			
+			alloc.process(content);		
+			alloc.printHeap();
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 		}

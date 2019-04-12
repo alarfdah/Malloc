@@ -2,14 +2,14 @@ package malloc;
 
 public class Heap {
 	private static final int MAX_SIZE = 100000;
+	private static final int EXPLICIT = 2;
 	
 	private static int implicitOrExplicit;
 	private static int firstOrBestFit;
 	
 	private int heap[];
 	private int size;
-	
-	private FreeNode head;
+	private int curr;
 	
 
 	public Heap() {
@@ -24,7 +24,20 @@ public class Heap {
 		
 		// In the first header and footer store the size of the block
 		this.heap[1] = this.size - 1;
-		this.heap[this.size - 2] = this.size - 1;
+		this.heap[this.size - 2] = this.size - 1;		
+		
+		// If explicit set the root at index 0
+		// Which points to the payload of the next free block
+		if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+			// index three is the index of the "next" block
+			this.heap[0] = 3;
+			this.curr = 3;
+			
+			// set the prev to point to root and next to -1
+			this.heap[2] = 0;
+			this.heap[3] = -1;
+		}
+		
 		
 	}
 		
@@ -55,13 +68,13 @@ public class Heap {
 	public void setSize(int size) {
 		this.size = size;
 	}
-	
-	public FreeNode getHead() {
-		return head;
+
+	public int getCurr() {
+		return curr;
 	}
 
-	public void setHead(FreeNode head) {
-		this.head = head;
+	public void setCurr(int curr) {
+		this.curr = curr;
 	}
 
 	public int[] getHeap() {
