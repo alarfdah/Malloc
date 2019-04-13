@@ -13,6 +13,7 @@ public class Driver {
 		List<String> content = new ArrayList<>();
 		int pointers[] = new int[1000];
 		
+		System.out.println(0 % 2);
 		// UserInput
 		UserInput ui = new UserInput();
 //		input = ui.getUserInput();
