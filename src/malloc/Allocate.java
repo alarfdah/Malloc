@@ -21,16 +21,9 @@ public class Allocate {
 	 * Allocated: 	Last bit = 0
 	 * Free: 		Last bit = 1
 	 */
-	public Allocate(int pointers[]) {
-		heap = new Heap();
+	public Allocate(Heap heap, int pointers[]) {
+		this.heap = heap;
 		this.pointer = pointers;
-	}
-	
-	public void printHeap() {
-		int i;
-		for (i = 0; i < heap.getSize(); i++) {
-			System.out.printf("[%4d] = %4d\n", i, heap.getHeap(i));
-		}
 	}
 	
 	public void process(List<String> content) throws Exception {
@@ -109,7 +102,7 @@ public class Allocate {
 		payloadPtr = oldHeaderIndex + 1;
 		
 		// If the size of the free block is greater than the size requested then split
-		if ((oldHeaderValue - FREE) > blckSize) {
+		if (oldHeaderValue > blckSize) {
 			
 			// Change size in old header
 			heap.setHeap(oldHeaderIndex, blckSize);
@@ -154,15 +147,70 @@ public class Allocate {
 				if (prev == 0) {
 					heap.setHeap(prev, newHeaderIndex + 2 * HEADER_SIZE);
 				// Change the next pointer from previous block to point to the new payload
-				} else if (prev != -1) {
+				} else if (prev != 0) {
 					// Prev will take you back to the prev ptr or prev block, add 1 to get its next
 					heap.setHeap(prev + 1, newHeaderIndex + 2 * HEADER_SIZE);	
 				}
 				
 			}
-		} else {
-			mysbrk(SBRK);
-			payloadPtr = -1;
+		// Else if block fits
+		} else if (oldHeaderValue == blckSize) {
+			// Change size in old header
+			heap.setHeap(oldHeaderIndex, blckSize);
+			
+			// Get new footer index
+			oldFooterIndex = oldHeaderIndex + blckSize - FOOTER_SIZE;
+			
+			// Set size in new Footer
+			heap.setHeap(oldFooterIndex, blckSize);
+			
+			// If explicit
+			if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+				// Remove the prev and next addresses to the next split free block
+				prev = heap.getHeap(oldHeaderIndex + HEADER_SIZE);
+				next = heap.getHeap(oldHeaderIndex + 2 * HEADER_SIZE);
+				
+				// Reset the contents of the payload
+				heap.setHeap(oldHeaderIndex + HEADER_SIZE, 1);
+				heap.setHeap(oldHeaderIndex + 2 * HEADER_SIZE, 1);
+				
+				// If there is not next when we allocate, allocate a new free block
+				if (next == -1) {
+					newHeaderIndex = mysbrk(SBRK);
+					// Transfer to the new header
+					heap.setHeap(newHeaderIndex + HEADER_SIZE, prev);
+					heap.setHeap(newHeaderIndex + 2 * HEADER_SIZE, next);
+					
+					// Set the curr at the most recent free block
+					heap.setCurr(newHeaderIndex + 2 * HEADER_SIZE);
+					
+					// if prev is 0, then it points to root
+					if (prev == 0) {
+						heap.setHeap(prev, newHeaderIndex + 2 * HEADER_SIZE);
+					// Change the next pointer from previous block to point to the new payload
+					} else if (prev != 0) {
+						// Prev will take you back to the prev ptr or prev block, add 1 to get its next
+						heap.setHeap(prev + 1, newHeaderIndex + 2 * HEADER_SIZE);	
+					}
+				
+				// If there is a next, we have to change pointers of prev and next
+				} else {
+					// Since next != -1, change next's prev to point to prev
+					heap.setHeap(next - HEADER_SIZE, prev);
+					
+					// if prev is 0, then it points to root
+					if (prev == 0) {
+						heap.setHeap(prev, next);
+					// Change the next pointer from previous block to point to the new payload
+					} else if (prev != 0) {
+						// Prev will take you back to the prev ptr or prev block, add 1 to get its next
+						heap.setHeap(prev + HEADER_SIZE, next);	
+					}
+				}
+				
+			}
+			
+			
 		}
 		
 		return payloadPtr;
@@ -173,29 +221,49 @@ public class Allocate {
 		int headerIndex;
 		int payloadPtr;
 		
-		// First header starts at 1s 
-		headerIndex = 1;
-				
+		// If explicit, grab first header from root
+		if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+			headerIndex = heap.getHeap(ROOT) - 2 * HEADER_SIZE;
+		// First header starts at 1s
+		} else {
+			headerIndex = 1;			
+		}
 		
+		// Initialize payloadPtr
+		payloadPtr = -1;
+				
 		// Go through heap, start at second word
-		while (headerIndex < heap.getSize()) {
+		while (headerIndex > 0 && headerIndex < heap.getSize() - 1) {
 			// Get header value
 			headerValue = heap.getHeap(headerIndex);
 			
 			// When i = 1 is free and its size is 
-			if (headerValue % 2 == FREE) {
-				
+			if (headerValue % 2 == FREE && (headerValue - FREE) >= blckSize) {
 				// Split if necessary, if -1, then did not allocate but used sbrk
-				if ((payloadPtr = split(headerIndex, blckSize)) != -1) {
-					return payloadPtr;
-				}		
+				return split(headerIndex, blckSize);		
 			// If block is allocated	
 			} else {
 				
-				// Next header
-				headerIndex += headerValue;		
+				// If Explicit grab the next header in free list
+				if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+					headerIndex = heap.getHeap(headerIndex + 2 * HEADER_SIZE) - 2 * HEADER_SIZE;
+				// If not explicit grab the next header in memory
+				} else {
+					// Next header
+					headerIndex += headerValue % 2 == FREE ? headerValue - FREE : headerValue;					
+				}
 			}
 		}
+		
+		// If no space left to fit block in the heap, allocate more
+		if (payloadPtr == -1) {
+			do {	
+				headerIndex = mysbrk(SBRK);
+			} while ((headerValue = heap.getHeap(headerIndex)) < blckSize);
+			return split(headerIndex, blckSize);
+		}
+		
+		
 		
 		return -1;
 	}
@@ -203,37 +271,56 @@ public class Allocate {
 	public int bestFit(int blckSize) {
 		int headerValue;
 		int headerIndex;
-		int payloadPtr;
 		int minSize;
 		int minIndex;
 
 		// Set minSize to a large number
 		minSize = Integer.MAX_VALUE;
 		
-		// First header starts at 1s 
-		headerIndex = 1;		
+		// If explicit, grab first header from root
+		if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+			headerIndex = heap.getHeap(ROOT) - 2 * HEADER_SIZE;
+		// First header starts at 1s
+		} else {
+			headerIndex = 1;			
+		}
+		
+		// Initialize variables
+		headerValue = -1;
+		minIndex = -1;
 		
 		// Go through heap, start at second word
-		while (headerIndex < heap.getSize()) {
+		while (headerIndex > 0 && headerIndex < heap.getSize() - 1) {
 			// Get header value
 			headerValue = heap.getHeap(headerIndex);
 			
 			// When i = 1 is free and its size is 
-			if (headerValue % 2 == FREE && (headerValue - FREE) >= blckSize && blckSize <= minSize) {
-				minSize = blckSize;
+			if (headerValue % 2 == FREE && (headerValue - FREE) >= blckSize && (headerValue - FREE) < minSize) {
+				minSize = headerValue - FREE;
 				minIndex = headerIndex;
-			// If block is allocated	
+			}
+			
+			// If Explicit grab the next header in free list
+			if (Heap.getImplicitOrExplicit() == EXPLICIT) {
+				headerIndex = heap.getHeap(headerIndex + 2 * HEADER_SIZE) - 2 * HEADER_SIZE;
+			// If not explicit grab the next header in memory
 			} else {
-				
 				// Next header
-				headerIndex += headerValue;		
+				headerIndex += headerValue % 2 == FREE ? headerValue - FREE : headerValue;					
 			}
 		}
 		
 		// Call with the headerIndex that has the best fit block
-		if ((payloadPtr = split(headerIndex, blckSize)) != -1 && headerIndex != Integer.MAX_VALUE) {
-			return payloadPtr;
-		}		
+		if (minIndex != -1 && minSize != Integer.MAX_VALUE) {
+			return split(minIndex, blckSize);
+		// If not blocks suitable
+		} else if (minIndex == -1) {
+			// Call sbrk as many times as needed
+			do {	
+				headerIndex = mysbrk(SBRK);
+			} while ((headerValue = heap.getHeap(headerIndex)) < blckSize);
+			return split(headerIndex, blckSize);
+		}
 		
 		return -1;
 	}
@@ -256,12 +343,12 @@ public class Allocate {
 		// Add Header and Footer to the size
 		size += HEADER_SIZE + FOOTER_SIZE;
 		
-		// First fit
-		if (Heap.getFirstOrBestFit() == BEST) {
-			payloadPtr = firstFit(size);
 		// Best fit
+		if (Heap.getFirstOrBestFit() == BEST) {
+			payloadPtr = bestFit(size); 
+		// First fit
 		} else {
-			payloadPtr = bestFit(size);
+			payloadPtr = firstFit(size);
 		}
 		
 		return payloadPtr;
@@ -288,9 +375,6 @@ public class Allocate {
 		
 		int tempPrev;
 		int tempNext;
-
-		int tempPrevVal;
-		int tempNextVal;
 		
 		int newBlckPtr = 0;
 		int rootVal;
@@ -625,7 +709,7 @@ public class Allocate {
 		return payloadPtr;
 	}
 	
-	public void mysbrk(int size) {
+	public int mysbrk(int size) {
 		try {
 			// Declaring variables
 			int oldSize;
@@ -651,6 +735,7 @@ public class Allocate {
 			// Get header associated with that footer if free
 			// If footer is allocated, size will be even,
 			// Otherwise, size will be odd
+			// If footer is allocated, new header will be created later
 			if (oldFooterValue % 2 == FREE) {
 				// Get old header index
 				oldHeaderIndex = oldFooterIndex - (oldFooterValue - FREE) + HEADER_SIZE;			
@@ -680,6 +765,8 @@ public class Allocate {
 				
 				// Set the old header's size to match the new footer
 				heap.setHeap(oldHeaderIndex, newFooterValue);
+				
+				newHeaderIndex = oldHeaderIndex;
 			// In case of the last block being allocated	
 			} else {
 				// Get new header's index
@@ -700,9 +787,12 @@ public class Allocate {
 				// Set the new footer on the heap
 				heap.setHeap(newFooterIndex, newFooterValue + FREE);
 			}
+			return newHeaderIndex;
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
+			return -1;
 		}
+		
 	}
 	
 	/**

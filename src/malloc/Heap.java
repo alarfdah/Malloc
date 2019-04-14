@@ -126,4 +126,11 @@ public class Heap {
 		return this.size;
 	}
 	
+	public void printHeap() {
+		int i;
+		for (i = 0; i < this.size; i++) {
+			System.out.printf("[%4d] = %4d\n", i, heap[i]);
+		}
+	}
+	
 }

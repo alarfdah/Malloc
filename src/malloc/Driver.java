@@ -9,39 +9,37 @@ public class Driver {
 		// Declarations
 		FileIO fileIO;
 		Allocate alloc;
+		Heap heap;
 		String input[]; // 0: File name, 1: Implicit or Explicit, 2. First or Best fit
 		List<String> content = new ArrayList<>();
 		int pointers[] = new int[1000];
 		
-		System.out.println(0 % 2);
 		// UserInput
 		UserInput ui = new UserInput();
-//		input = ui.getUserInput();
+		input = ui.getUserInput();
 		
 		// File IO
-//		fileIO = new FileIO(input[0]);
-		fileIO = new FileIO("input.txt");
+		fileIO = new FileIO(input[0]);
 		fileIO.readFile(content);
 		
 		// Set Implicit or Explicit
-//		Heap.setImplicitOrExplicit(Integer.parseInt(input[1]));
-		Heap.setImplicitOrExplicit(2);
+		Heap.setImplicitOrExplicit(Integer.parseInt(input[1]));
 		
 		// Set First or Best fit
-//		Heap.setFirstOrBestFit(Integer.parseInt(input[2]));
-		Heap.setFirstOrBestFit(1);
-		
+		Heap.setFirstOrBestFit(Integer.parseInt(input[2]));
 		
 		// Process input
 		try {
-			alloc = new Allocate(pointers);
+			heap = new Heap();
+			alloc = new Allocate(heap, pointers);
 			alloc.process(content);		
-			alloc.printHeap();
+			fileIO.writeFile(heap.getHeap());
+			heap.printHeap();
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 		}
 		
-		System.out.println("Allocation is successful!");
+		System.out.println("Done.");
 		
 	}
 
