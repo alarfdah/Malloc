@@ -1,7 +1,15 @@
 package malloc;
 
+/**
+ * Date: 04/14/2019
+ * Class: CS5541
+ * Assignment: Assignment 4 - Malloc
+ * Author: Ahmed Radwan
+ * Email: ahmedabdelwaha.radwan@wmich.edu
+ */
 public class Heap {
 	private static final int MAX_SIZE = 100000;
+	private static final int INITIAL_SIZE = 1000;
 	private static final int EXPLICIT = 2;
 	
 	private static int implicitOrExplicit;
@@ -15,7 +23,7 @@ public class Heap {
 	public Heap() {
 		int i;
 		// Initialize implicitList
-		this.size = 10; // In Bytes
+		this.size = INITIAL_SIZE; // In Bytes
 		this.heap = new int[this.size];
 		
 		for (i = 0; i < size; i++) {
@@ -128,9 +136,11 @@ public class Heap {
 	
 	public void printHeap() {
 		int i;
+		System.out.println("*****PRINTING HEAP*****");
 		for (i = 0; i < this.size; i++) {
 			System.out.printf("[%4d] = %4d\n", i, heap[i]);
 		}
+		System.out.println("***********************");
 	}
 	
 }

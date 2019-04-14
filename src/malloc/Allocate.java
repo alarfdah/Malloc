@@ -4,12 +4,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Date: 04/14/2019
+ * Class: CS5541
+ * Assignment: Assignment 4 - Malloc
+ * Author: Ahmed Radwan
+ * Email: ahmedabdelwaha.radwan@wmich.edu
+ */
 public class Allocate {
 	private static final int HEADER_SIZE = 1;
 	private static final int FOOTER_SIZE = 1;
 	private static final int WORD_SIZE = 4;
 	private static final int EXPLICIT = 2;
-	private static final int SBRK = 10;
+	private static final int SBRK = 1000;
 	private static final int ROOT = 0;
 	private static final int FREE = 1;
 	private static final int BEST = 2;
@@ -257,9 +264,11 @@ public class Allocate {
 		
 		// If no space left to fit block in the heap, allocate more
 		if (payloadPtr == -1) {
+			// Allocate as much space as needed
 			do {	
 				headerIndex = mysbrk(SBRK);
 			} while ((headerValue = heap.getHeap(headerIndex)) < blckSize);
+			
 			return split(headerIndex, blckSize);
 		}
 		
@@ -319,6 +328,7 @@ public class Allocate {
 			do {	
 				headerIndex = mysbrk(SBRK);
 			} while ((headerValue = heap.getHeap(headerIndex)) < blckSize);
+			
 			return split(headerIndex, blckSize);
 		}
 		
@@ -359,7 +369,7 @@ public class Allocate {
 	 * Coalescence function that joins two adjacent
 	 * free blocks together.
 	 * In case of explicit lists, uses LIFO policy
-	 * insert the new freed blocks.
+	 * to insert the new freed blocks.
 	 * 
 	 * @param blckPtr
 	 * @param size

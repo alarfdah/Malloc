@@ -3,6 +3,13 @@ package malloc;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Date: 04/14/2019
+ * Class: CS5541
+ * Assignment: Assignment 4 - Malloc
+ * Author: Ahmed Radwan
+ * Email: ahmedabdelwaha.radwan@wmich.edu
+ */
 public class Driver {
 
 	public static void main(String[] args) {
