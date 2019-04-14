@@ -16,7 +16,6 @@ import java.util.Scanner;
  */
 public class FileIO {
 	private static final String OUTPUT = "output.txt";
-	private static final int WORD_SIZE = 4;
 	
 	private Scanner kbrd;
 	private PrintWriter print;
@@ -58,7 +57,7 @@ public class FileIO {
 			int i;
 			print = new PrintWriter(new FileWriter(OUTPUT));
 			for (i = 0; i < heap.length; i++) {
-				print.println(i + ", " + String.format("0x%08X", heap[i] * WORD_SIZE));				
+				print.println(i + ", " + String.format("0x%08X", heap[i]));				
 			}
 			print.close();
 		} catch (Exception e) {
